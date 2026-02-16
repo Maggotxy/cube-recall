@@ -9,6 +9,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
+import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 
 import java.util.Map;
@@ -36,6 +37,7 @@ public class AntiCheatHandler {
     private static final int MAX_AIR_TICKS = 80;             // 滞空tick阈值（4秒）
     private static final int VIOLATION_THRESHOLD = 5;         // 违规次数阈值
     private static final int CHECK_INTERVAL = 20;             // 检测间隔（tick，1秒）
+    private static final double TELEPORT_THRESHOLD = 50.0;   // 距离超过此值视为传送（方块）
 
     public AntiCheatHandler(AuthConfig config) {
         this.config = config;
@@ -90,12 +92,21 @@ public class AntiCheatHandler {
         // 1. 速度检测
         double dx = currentPos.x - lastPos.x;
         double dz = currentPos.z - lastPos.z;
-        double horizontalSpeed = Math.sqrt(dx * dx + dz * dz); // 方块/秒 (CHECK_INTERVAL = 20 ticks = 1秒)
+        double horizontalDistance = Math.sqrt(dx * dx + dz * dz);
 
-        if (horizontalSpeed > MAX_HORIZONTAL_SPEED) {
+        // 跳过传送造成的瞬移（距离过大说明是 /tp 等命令）
+        if (horizontalDistance > TELEPORT_THRESHOLD) {
+            MCLauncherAuth.LOGGER.debug("[AntiCheat] Ignoring teleport for {}: moved {} blocks",
+                    player.getName().getString(), String.format("%.1f", horizontalDistance));
+            data.updatePosition(currentPos);
+            data.airTicks = 0;
+            return;
+        }
+
+        if (horizontalDistance > MAX_HORIZONTAL_SPEED) {
             data.violations++;
-            MCLauncherAuth.LOGGER.warn("[AntiCheat] Speed violation: {} moved {:.1f} blocks/s (limit: {})",
-                    player.getName().getString(), horizontalSpeed, MAX_HORIZONTAL_SPEED);
+            MCLauncherAuth.LOGGER.warn("[AntiCheat] Speed violation: {} moved {} blocks/s (limit: {})",
+                    player.getName().getString(), String.format("%.1f", horizontalDistance), MAX_HORIZONTAL_SPEED);
         }
 
         // 2. 飞行检测（非飞行状态下长时间不在地面）
@@ -142,7 +153,7 @@ public class AntiCheatHandler {
         body.addProperty("reason", "anticheat_auto_kick");
 
         String apiUrl = config.getApiBaseUrl() + "/anticheat/report";
-        HttpUtil.postJsonAsync(apiUrl, GSON.toJson(body), config.getVerifyTimeoutSeconds())
+        HttpUtil.postJsonAsync(apiUrl, GSON.toJson(body), config.getVerifyTimeoutSeconds(), config.getApiKey())
                 .thenAccept(resp -> {
                     if (resp != null) {
                         MCLauncherAuth.LOGGER.info("[AntiCheat] Reported violation for {}", playerName);

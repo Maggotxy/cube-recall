@@ -4,8 +4,24 @@ const os = require('os')
 const { MinecraftFolder, Version, generateArguments } = require('@xmcl/core')
 const { installTask, installForge, installLibraries, installAssets, diagnoseInstall, getVersionList } = require('@xmcl/installer')
 const { spawn } = require('child_process')
-const https = require('https')
-const http = require('http')
+
+// ✅ Electron 28 内置 Node.js 18，没有全局 File 类，undici 7.x 需要它
+if (typeof globalThis.File === 'undefined') {
+  const { Blob } = require('buffer')
+  globalThis.File = class File extends Blob {
+    #name
+    #lastModified
+    constructor(bits, name, options = {}) {
+      super(bits, options)
+      this.#name = name
+      this.#lastModified = options.lastModified || Date.now()
+    }
+    get name() { return this.#name }
+    get lastModified() { return this.#lastModified }
+  }
+}
+
+const { Agent, interceptors } = require('undici')
 
 // ✅ 解决Node.js 20+的超时问题
 // 增加网络自动选择超时时间（Happy Eyeballs问题）
@@ -18,46 +34,59 @@ const MINECRAFT_DIR = path.join(os.homedir(), '.cuberecall', 'minecraft')
 const MC_VERSION = '1.20.1'
 const FORGE_VERSION = '47.4.16'
 
-// 🇨🇳 BMCLAPI 中国镜像源配置
-const BMCL_API_BASE = 'https://bmclapi2.bangbang93.com'
+// 🇨🇳 中国镜像源配置（多源冗余，按优先级排序）
+// 不使用任何国外官方源（maven.minecraftforge.net / libraries.minecraft.net），在中国会被墙
+// SJTUG / LZU 的 maven 路径返回 404，已移除，只保留实测可用的源
+// 1. BMCLAPI - 国内最大的 MC 公益镜像（bangbang93 维护）
+// 2. OSS - 自建雨云 S3 备用（最终兜底）
+const MIRROR_SOURCES = [
+  { name: 'BMCLAPI', maven: 'https://bmclapi2.bangbang93.com/maven', assets: 'https://bmclapi2.bangbang93.com/assets' },
+  { name: 'OSS',    maven: 'https://cube.cn-nb1.rains3.com/maven', assets: 'https://cube.cn-nb1.rains3.com/assets' },
+]
 
-// ✅ 创建下载选项（使用中国镜像源 + 重试机制）
+// ✅ 创建带超时的 undici dispatcher（@xmcl/file-transfer 内部使用 undici，不使用 Node.js http Agent）
+function createUndiciDispatcher() {
+  return new Agent({
+    connections: 32,            // 每个 origin 的最大连接数
+    connectTimeout: 15000,      // TCP 连接超时 15s
+    headersTimeout: 30000,      // 等待响应头超时 30s
+    bodyTimeout: 60000,         // 响应体读取超时 60s（单个 chunk 间隔）
+    keepAliveTimeout: 15000,    // keep-alive 空闲超时 15s
+    keepAliveMaxTimeout: 30000, // keep-alive 最大超时 30s
+    pipelining: 1,              // 禁用 pipelining，每个连接一个请求
+  }).compose(
+    interceptors.retry({
+      maxRetries: 3,
+      minTimeout: 1000,
+      maxTimeout: 10000,
+      timeoutFactor: 2,
+      errorCodes: ['ECONNRESET', 'ECONNREFUSED', 'ENOTFOUND', 'ENETDOWN', 'ENETUNREACH', 'EHOSTDOWN', 'EHOSTUNREACH', 'EPIPE', 'UND_ERR_CONNECT_TIMEOUT', 'UND_ERR_HEADERS_TIMEOUT', 'UND_ERR_BODY_TIMEOUT', 'UND_ERR_SOCKET'],
+    }),
+    interceptors.redirect({ maxRedirections: 5 })
+  )
+}
+
+// ✅ 创建下载选项（多源冗余 + undici dispatcher 超时控制）
 function createDownloadOptions() {
-  // 创建自定义 Node.js Agent，复用连接提升速度
-  const httpsAgent = new https.Agent({
-    keepAlive: true,
-    maxSockets: 32,
-    timeout: 90000
-  })
-  const httpAgent = new http.Agent({
-    keepAlive: true,
-    maxSockets: 32,
-    timeout: 90000
-  })
+  // 所有 Maven 源 URL 列表
+  const mavenHosts = MIRROR_SOURCES.filter(s => s.maven).map(s => s.maven)
+  // 所有 Assets 源 URL 列表
+  const assetsHosts = MIRROR_SOURCES.filter(s => s.assets).map(s => s.assets)
 
   return {
-    // Maven 仓库镜像（多个备用源，含官方源兜底）
-    mavenHost: [
-      `${BMCL_API_BASE}/maven`,
-      'https://maven.minecraftforge.net/',
-      'https://libraries.minecraft.net/',
-    ],
-    // 资源文件镜像
-    assetsHost: `${BMCL_API_BASE}/assets`,
-    // 库文件镜像函数（返回数组，实现单文件级多源 fallback）
+    // Maven 仓库镜像（多源 fallback）
+    mavenHost: mavenHosts,
+    // 资源文件镜像（多源 fallback，官方源会自动加到末尾）
+    assetsHost: assetsHosts,
+    // 库文件镜像函数（返回完整 URL 数组，单文件级多源 fallback）
     libraryHost(library) {
-      return [
-        `${BMCL_API_BASE}/maven/${library.path}`,
-        `https://maven.minecraftforge.net/${library.path}`,
-        `https://libraries.minecraft.net/${library.path}`,
-      ]
+      return mavenHosts.map(host => `${host}/${library.path}`)
     },
-    // 并发数：BMCLAPI QPS 限制约 20，设为 10 避免触发 429
+    // undici dispatcher：带连接/头/体超时 + 自动重试
+    dispatcher: createUndiciDispatcher(),
+    // 并发数：镜像站 QPS 有限，设为 10 避免触发限流
     assetsDownloadConcurrency: 10,
     librariesDownloadConcurrency: 10,
-    // 使用自定义 Agent（复用连接 + 绕过代理）
-    httpsAgent,
-    httpAgent
   }
 }
 
@@ -103,7 +132,7 @@ async function installAndLaunch(username, token, serverIp, javaPath, onProgress,
     onLog(`Forge版本: ${FORGE_VERSION}`)
     onLog(`Java路径: ${javaPath}`)
     onLog(`Minecraft目录: ${MINECRAFT_DIR}`)
-    onLog(`镜像源: BMCLAPI (中国)`)
+    onLog(`镜像源: ${MIRROR_SOURCES.map(s => s.name).join(' → ')}`)
     onLog(`服务器: ${serverIp || '无'}`)
     onLog(``)
 
@@ -140,7 +169,7 @@ async function installAndLaunch(username, token, serverIp, javaPath, onProgress,
 
       // 获取版本列表并找到目标版本
       onLog(`正在获取版本信息...`)
-      const versionList = await getVersionList()
+      const versionList = await getVersionList({ remote: 'https://bmclapi2.bangbang93.com/mc/game/version_manifest.json' })
       const versionMeta = versionList.versions.find(v => v.id === MC_VERSION)
 
       if (!versionMeta) {

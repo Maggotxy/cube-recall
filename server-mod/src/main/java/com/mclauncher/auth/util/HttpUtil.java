@@ -40,9 +40,13 @@ public class HttpUtil {
 
         if (apiKey != null && !apiKey.isEmpty()) {
             builder.header("X-Api-Key", apiKey);
+            MCLauncherAuth.LOGGER.info("Sending X-Api-Key: [{}] (len={})", apiKey, apiKey.length());
+        } else {
+            MCLauncherAuth.LOGGER.warn("No API Key provided! apiKey={}", apiKey);
         }
 
         HttpRequest request = builder.build();
+        MCLauncherAuth.LOGGER.info("Request headers: {}", request.headers().map());
 
         return HTTP_CLIENT.sendAsync(request, HttpResponse.BodyHandlers.ofString())
                 .thenApply(response -> {

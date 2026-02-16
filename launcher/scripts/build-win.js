@@ -1,9 +1,9 @@
 /**
  * Windows 构建脚本
  * 1. vite build
- * 2. electron-builder --dir (仅打包，不生成 portable)
+ * 2. electron-builder --dir (打包 unpacked)
  * 3. rcedit 替换图标和版本信息
- * 4. electron-builder --prepackaged (生成 portable)
+ * 4. electron-builder --win portable --prepackaged (NSIS portable)
  */
 const { execSync } = require('child_process')
 const path = require('path')
@@ -15,7 +15,6 @@ const OUTPUT = path.join(ROOT, 'release')
 const UNPACKED = path.join(OUTPUT, 'win-unpacked')
 const EXE_NAME = 'Cube Recall.exe'
 
-// 在 electron-builder 缓存中查找 rcedit
 function findRcedit() {
   const cacheDir = path.join(
     process.env.LOCALAPPDATA || '',
@@ -39,10 +38,10 @@ try {
   // Step 1: Build Vue
   run('npx vite build', 'Building Vue frontend...')
 
-  // Step 2: Build unpacked only
-  run('npx electron-builder --win --dir', 'Packaging Electron app...')
+  // Step 2: Build unpacked
+  run('npx electron-builder --win --dir', 'Packaging Electron app (unpacked)...')
 
-  // Step 3: Apply rcedit
+  // Step 3: Apply rcedit for icon and version info
   const rcedit = findRcedit()
   const exePath = path.join(UNPACKED, EXE_NAME)
 
@@ -64,15 +63,18 @@ try {
 
     console.log('>> Icon and version info applied successfully')
   } else {
-    console.warn('>> WARNING: rcedit not found or exe/icon missing, skipping icon replacement')
-    if (!rcedit) console.warn('   rcedit not found in electron-builder cache')
+    console.warn('>> WARNING: rcedit not found or exe/icon missing, skipping')
   }
 
-  // Step 4: Build portable from modified unpacked
-  run(`npx electron-builder --win portable --x64 --prepackaged "${UNPACKED}"`, 'Building portable exe...')
+  // Step 4: Build NSIS portable from modified unpacked
+  // electron-builder 的 --prepackaged 默认用 7z SFX，
+  // 但我们需要 NSIS portable（设置 PORTABLE_EXECUTABLE_FILE 环境变量）
+  // 通过 --win portable 强制使用 NSIS 模板
+  run(`npx electron-builder --win portable --prepackaged "${UNPACKED}"`, 'Building portable exe...')
 
   console.log('\n>> Build complete!')
-  const portableExe = path.join(OUTPUT, `CubeRecall-${require(path.join(ROOT, 'package.json')).version}.exe`)
+  const pkg = require(path.join(ROOT, 'package.json'))
+  const portableExe = path.join(OUTPUT, `CubeRecall-${pkg.version}.exe`)
   if (fs.existsSync(portableExe)) {
     const size = (fs.statSync(portableExe).size / 1024 / 1024).toFixed(1)
     console.log(`>> Output: ${portableExe} (${size} MB)`)

@@ -76,7 +76,9 @@ public class AuthConfig {
                 MCLauncherAuth.LOGGER.info("Config loaded from {}", path);
                 return config;
             } catch (IOException e) {
-                MCLauncherAuth.LOGGER.error("Failed to load config, using defaults", e);
+                MCLauncherAuth.LOGGER.error("Failed to read config file, using defaults", e);
+            } catch (Exception e) {
+                MCLauncherAuth.LOGGER.error("Failed to parse config (invalid JSON?), using defaults", e);
             }
         }
 

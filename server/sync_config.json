@@ -20,7 +20,7 @@
       "id": "config",
       "display_name": "配置文件",
       "path": "../mcserver/config",
-      "extensions": [".json", ".toml", ".cfg", ".txt", ".yml", ".yaml"],
+      "extensions": ["*"],
       "priority": 2,
       "download_base_url": "http://mc.sivita.xyz:5806/sync/config/download"
     },

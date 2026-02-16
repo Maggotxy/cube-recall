@@ -1,6 +1,6 @@
 {
   "name": "cube-recall",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Cube Recall - Minecraft Forge 1.20.1 Game Launcher",
   "author": "Cube Recall Team",
   "main": "electron/main.js",

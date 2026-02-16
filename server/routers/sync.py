@@ -64,12 +64,19 @@ def get_folder_manifest(folder_id: str):
         return {}
 
     manifest = {}
-    extensions = tuple(folder["extensions"])
+    extensions = folder.get("extensions", [])
+    sync_all = "*" in extensions  # 通配符：同步所有文件
+    ext_tuple = tuple(extensions) if not sync_all else ()
+
+    # 需要跳过的文件
+    skip_files = {".DS_Store", "Thumbs.db", "desktop.ini"}
 
     # 递归扫描目录
     for root, dirs, files in os.walk(folder_path):
         for filename in files:
-            if filename.endswith(extensions):
+            if filename in skip_files:
+                continue
+            if sync_all or filename.endswith(ext_tuple):
                 filepath = os.path.join(root, filename)
                 rel_path = os.path.relpath(filepath, folder_path).replace("\\", "/")
 

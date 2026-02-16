@@ -74,6 +74,19 @@
         </div>
       </div>
 
+      <!-- QQ 群 -->
+      <div class="qq-group">
+        <svg viewBox="0 0 16 16" width="14" height="14" class="qq-icon">
+          <rect x="4" y="1" width="8" height="4" fill="#12B7F5"/>
+          <rect x="2" y="5" width="12" height="6" fill="#12B7F5"/>
+          <rect x="4" y="11" width="3" height="3" fill="#12B7F5"/>
+          <rect x="9" y="11" width="3" height="3" fill="#12B7F5"/>
+          <rect x="5" y="4" width="2" height="2" fill="#fff"/>
+          <rect x="9" y="4" width="2" height="2" fill="#fff"/>
+        </svg>
+        <span class="qq-label">QQ群: 626488466</span>
+      </div>
+
       <!-- 登出/登录按钮 -->
       <button
         v-if="userStore.isLoggedIn"
@@ -682,9 +695,33 @@ function handleLogout() {
 .text-red { color: var(--mc-redstone); }
 .text-yellow { color: var(--mc-gold); }
 
+/* QQ 群 */
+.qq-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  margin-top: auto;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid #333;
+  cursor: default;
+  user-select: text;
+}
+
+.qq-icon {
+  flex-shrink: 0;
+  image-rendering: pixelated;
+}
+
+.qq-label {
+  font-family: var(--font-body);
+  font-size: 15px;
+  color: var(--text-secondary);
+}
+
 /* 登出按钮 */
 .logout-btn {
-  margin-top: auto;
+  margin-top: 8px;
   font-size: 9px;
   padding: 8px;
   min-height: 36px;

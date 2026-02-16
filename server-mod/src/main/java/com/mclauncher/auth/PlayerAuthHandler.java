@@ -95,6 +95,15 @@ public class PlayerAuthHandler {
 
         try {
             JsonObject response = JsonParser.parseString(responseBody).getAsJsonObject();
+
+            // 处理 API 错误响应（如 403 返回 {"detail":"..."}）
+            if (response.has("detail") && !response.has("valid")) {
+                String detail = response.get("detail").getAsString();
+                MCLauncherAuth.LOGGER.warn("Player {} API error: {}", playerName, detail);
+                player.connection.disconnect(Component.literal(config.getKickMessageError()));
+                return;
+            }
+
             boolean valid = response.has("valid") && response.get("valid").getAsBoolean();
 
             if (valid) {

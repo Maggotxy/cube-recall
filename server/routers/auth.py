@@ -174,8 +174,12 @@ class VerifyPlayerRequest(BaseModel):
     client_ip: str
 
 
-def verify_mod_api_key(x_api_key: str = Header(None)):
+def verify_mod_api_key(request: Request = None, x_api_key: str = Header(None)):
     """验证 Mod-Server 通信密钥"""
+    import logging
+    if request:
+        logging.getLogger('auth').warning(f"verify-player headers: {dict(request.headers)}")
+    logging.getLogger('auth').warning(f"x_api_key param = [{x_api_key}], MOD_API_KEY = [{MOD_API_KEY}]")
     if MOD_API_KEY and x_api_key != MOD_API_KEY:
         raise HTTPException(403, "无效的 API Key")
 
@@ -200,5 +204,74 @@ def verify_player(req: VerifyPlayerRequest, db: Session = Depends(get_db)):
 
     if normalize_ip(login_token.client_ip) != normalize_ip(req.client_ip):
         return {"valid": False, "reason": "IP不匹配，请通过启动器重新登录"}
+
+    return {"valid": True, "username": req.username}
+
+
+# ========== Launch Token（一次性启动令牌）==========
+
+class CreateLaunchTokenRequest(BaseModel):
+    username: str
+    token: str  # 登录 token，用于验证身份
+
+
+@router.post("/create-launch-token")
+def create_launch_token(req: CreateLaunchTokenRequest, request: Request, db: Session = Depends(get_db)):
+    """启动器在启动游戏前调用，生成一次性 launch token"""
+    # 验证登录 token 有效
+    from models import LoginToken, LaunchToken
+    login_token = db.query(LoginToken).filter(
+        LoginToken.token == req.token,
+        LoginToken.expires_at > datetime.datetime.utcnow(),
+    ).first()
+
+    if not login_token or login_token.user.username != req.username:
+        raise HTTPException(401, "登录 Token 无效或已过期")
+
+    # 更新 login token 的 client_ip 为当前请求 IP（用户可能切换了网络）
+    current_ip = normalize_ip(request.client.host)
+    if login_token.client_ip != current_ip:
+        login_token.client_ip = current_ip
+
+
+    # 清理该用户旧的 launch token
+    db.query(LaunchToken).filter(LaunchToken.username == req.username).delete()
+
+    # 生成新的 launch token（2分钟有效）
+    launch_token = secrets.token_hex(32)
+    expires = datetime.datetime.utcnow() + datetime.timedelta(minutes=2)
+    lt = LaunchToken(
+        username=req.username,
+        token=launch_token,
+        expires_at=expires,
+    )
+    db.add(lt)
+    db.commit()
+
+    return {"launch_token": launch_token, "expires_at": expires.isoformat()}
+
+
+class VerifyLaunchTokenRequest(BaseModel):
+    username: str
+    launch_token: str
+
+
+@router.post("/verify-launch-token", dependencies=[Depends(verify_mod_api_key)])
+def verify_launch_token(req: VerifyLaunchTokenRequest, db: Session = Depends(get_db)):
+    """服务端 Mod 调用，验证玩家的 launch token"""
+    from models import LaunchToken
+    lt = db.query(LaunchToken).filter(
+        LaunchToken.token == req.launch_token,
+        LaunchToken.username == req.username,
+        LaunchToken.used == 0,
+        LaunchToken.expires_at > datetime.datetime.utcnow(),
+    ).first()
+
+    if not lt:
+        return {"valid": False, "reason": "启动令牌无效、已过期或已使用"}
+
+    # 标记为已使用（一次性）
+    lt.used = 1
+    db.commit()
 
     return {"valid": True, "username": req.username}

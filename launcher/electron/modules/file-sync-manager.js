@@ -138,6 +138,8 @@ class FileSyncManager {
    */
   async scanLocalFiles(extensions) {
     const manifest = {}
+    const syncAll = extensions.includes('*')
+    const skipFiles = new Set(['.DS_Store', 'Thumbs.db', 'desktop.ini'])
 
     if (!fs.existsSync(this.targetDir)) {
       return manifest
@@ -147,13 +149,14 @@ class FileSyncManager {
       const entries = fs.readdirSync(dir, { withFileTypes: true })
 
       for (const entry of entries) {
+        if (skipFiles.has(entry.name)) continue
         const fullPath = path.join(dir, entry.name)
 
         if (entry.isDirectory()) {
           await scanDir(fullPath)
         } else if (entry.isFile()) {
           const ext = path.extname(entry.name)
-          if (extensions.includes(ext)) {
+          if (syncAll || extensions.includes(ext)) {
             const relativePath = path.relative(this.targetDir, fullPath).replace(/\\/g, '/')
             manifest[relativePath] = await this.computeMD5(fullPath)
           }
@@ -209,9 +212,12 @@ class FileSyncManager {
     if (!fs.existsSync(this.targetDir)) return []
     const removed = []
     const serverFiles = new Set(Object.keys(serverManifest))
+    const syncAll = extensions.includes('*')
+    const skipFiles = new Set(['.DS_Store', 'Thumbs.db', 'desktop.ini'])
 
     const entries = fs.readdirSync(this.targetDir, { withFileTypes: true })
     for (const entry of entries) {
+      if (skipFiles.has(entry.name)) continue
       const fullPath = path.join(this.targetDir, entry.name)
       if (entry.isDirectory()) {
         // 服务器清单里没有以此目录为前缀的文件 → 删除整个目录
@@ -223,10 +229,14 @@ class FileSyncManager {
         }
       } else if (entry.isFile()) {
         const ext = path.extname(entry.name)
-        // 扩展名匹配但不在清单里 → 已由 checkDiff 处理
-        // 扩展名不匹配且不在清单里 → 额外清理
-        if (!extensions.includes(ext) && !serverFiles[entry.name]) {
-          // 保留不匹配扩展名但在清单里的文件
+        if (syncAll) {
+          // 通配符模式：不在清单中的文件都删除
+          if (!serverFiles.has(entry.name)) {
+            fs.unlinkSync(fullPath)
+            removed.push(entry.name)
+          }
+        } else if (!extensions.includes(ext)) {
+          // 扩展名不匹配且不在清单里 → 清理
           if (!serverFiles.has(entry.name)) {
             fs.unlinkSync(fullPath)
             removed.push(entry.name)

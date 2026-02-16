@@ -102,12 +102,17 @@ if (!gotTheLock) {
     // 初始化自动更新器
     updater.setupAutoUpdater(mainWindow)
 
-    // 延迟10秒后检查更新（开发环境跳过）
-    setTimeout(() => {
+    // 延迟10秒后检查更新并自动安装（开发环境跳过）
+    setTimeout(async () => {
       if (process.env.NODE_ENV !== 'development' && app.isPackaged) {
-        updater.checkForUpdates().catch(err => {
-          console.error('检查更新失败:', err)
-        })
+        try {
+          const result = await updater.checkForUpdates()
+          if (result.updateAvailable) {
+            await updater.downloadUpdate()
+          }
+        } catch (err) {
+          console.error('自动更新失败:', err)
+        }
       }
     }, 10000)
   })
@@ -271,36 +276,90 @@ ipcMain.handle('game:prepareEnvironment', async (event, { serverUrl }) => {
     sendLog('[2/3] 检查 Minecraft 和 Forge')
 
     const { MinecraftFolder, Version } = require('@xmcl/core')
-    const { installTask, installForge, getVersionList, installLibraries: installLibs, installAssets: installAsts } = require('@xmcl/installer')
+    const { installVersion, installForge, getVersionList, installLibraries: installLibs, installAssets: installAsts } = require('@xmcl/installer')
     const minecraftLocation = new MinecraftFolder(gameManager.getMinecraftDir())
-    const downloadOpts = gameManager.createDownloadOptions()
     const isGameInstalled = await gameManager.isInstalled()
+    const fs = require('fs')
+
+    // ===== 统一重试 + 超时辅助函数 =====
+    // 所有网络下载操作都经过此函数，确保：
+    // 1. 每次尝试有独立超时（防止 undici 连接挂起）
+    // 2. 每次重试创建新的 dispatcher（丢弃旧连接池）
+    // 3. 超时后主动关闭旧 dispatcher，防止连接泄漏
+    // 4. 错误详细日志
+    const withRetry = async (fn, label, { maxRetries = 5, timeoutMs = 180000 } = {}) => {
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        let dispatcher = null
+        try {
+          sendLog(`[${label}] 第 ${attempt}/${maxRetries} 次尝试...`)
+          const opts = gameManager.createDownloadOptions()
+          dispatcher = opts.dispatcher // 保存引用，超时时关闭
+
+          // Promise.race：下载 vs 超时
+          const result = await Promise.race([
+            fn(opts),
+            new Promise((_, reject) =>
+              setTimeout(() => reject(new Error(`${label}超时 (${timeoutMs / 1000}s)`)), timeoutMs)
+            )
+          ])
+          sendLog(`✓ ${label}完成`)
+          return result
+        } catch (err) {
+          // 超时或失败时关闭 dispatcher，断开所有连接
+          if (dispatcher) {
+            try { dispatcher.close() } catch (_) {}
+          }
+          const errMsg = err.message || String(err)
+          const errCount = err.errors ? err.errors.length : 1
+          sendLog(`⚠️ ${label}失败 (${errCount} 个错误): ${errMsg}`)
+          // 展开 AggregateError 子错误
+          if (err.errors) {
+            for (const sub of err.errors.slice(0, 5)) {
+              sendLog(`  - ${sub.message || sub}${sub.url ? ' URL: ' + sub.url : ''}`)
+            }
+            if (err.errors.length > 5) sendLog(`  ... 还有 ${err.errors.length - 5} 个错误`)
+          }
+          if (attempt >= maxRetries) throw err
+          const delay = attempt * 3000
+          sendLog(`等待 ${delay / 1000} 秒后重试...`)
+          await new Promise(r => setTimeout(r, delay))
+        }
+      }
+    }
 
     if (!isGameInstalled) {
       sendLog('Minecraft/Forge 未安装，开始下载...')
       sendLog('这可能需要几分钟，请耐心等待...')
 
-      // 下载Minecraft
-      const versionList = await getVersionList()
+      // 获取版本列表（使用 BMCLAPI 镜像，官方 launchermeta.mojang.com 在中国被墙）
+      sendProgress('game', 22, '正在获取版本列表...')
+      const versionList = await withRetry(
+        async () => getVersionList({ remote: 'https://bmclapi2.bangbang93.com/mc/game/version_manifest.json' }),
+        '版本列表获取',
+        { maxRetries: 3, timeoutMs: 30000 }
+      )
       const versionMeta = versionList.versions.find(v => v.id === gameManager.MC_VERSION)
       if (!versionMeta) {
         throw new Error(`未找到 Minecraft ${gameManager.MC_VERSION}`)
       }
 
-      const task = installTask(versionMeta, minecraftLocation, {
-        side: 'client',
-        ...downloadOpts
-      })
+      sendProgress('game', 25, '正在下载 Minecraft 版本文件...')
+      await withRetry(
+        (opts) => installVersion(versionMeta, minecraftLocation, { side: 'client', ...opts }),
+        'Minecraft 版本文件下载',
+        { maxRetries: 5, timeoutMs: 120000 }
+      )
 
-      await task.startAndWait({
-        onUpdate(t) {
-          if (t.total > 0) {
-            const percent = 20 + Math.round((t.progress / t.total) * 40)
-            sendProgress('game', percent, `下载 Minecraft: ${t.progress}/${t.total}`)
-          }
-        }
-      })
-      sendLog(`✓ Minecraft ${gameManager.MC_VERSION} 下载完成`)
+      // 下载 MC 基础 libraries（Forge 安装器需要这些）（带重试）
+      sendProgress('game', 30, '正在下载 Minecraft 库文件...')
+      await withRetry(
+        async (opts) => {
+          const mcParsed = await Version.parse(minecraftLocation, gameManager.MC_VERSION)
+          await installLibs(mcParsed, minecraftLocation, opts)
+        },
+        'MC 基础库文件下载',
+        { maxRetries: 5, timeoutMs: 120000 }
+      )
     } else {
       sendLog(`✓ Minecraft 已安装`)
     }
@@ -311,14 +370,10 @@ ipcMain.handle('game:prepareEnvironment', async (event, { serverUrl }) => {
       path.join(gameManager.getMinecraftDir(), 'libraries', 'net', 'minecraft', 'client', '1.20.1-20230612.114412', 'client-1.20.1-20230612.114412-extra.jar'),
       path.join(gameManager.getMinecraftDir(), 'libraries', 'net', 'minecraftforge', 'forge', '1.20.1-47.4.16', 'forge-1.20.1-47.4.16-client.jar'),
     ]
-    const fs = require('fs')
     const missingOutputs = forgeProcessorOutputs.filter(p => !fs.existsSync(p))
 
     if (missingOutputs.length > 0) {
       sendLog(`Forge 处理器输出缺失 (${missingOutputs.length} 个文件)，运行 Forge 安装处理器...`)
-      for (const p of missingOutputs) {
-        sendLog(`  缺失: ${p}`)
-      }
       sendProgress('game', 35, '正在运行 Forge 安装处理器...')
 
       // 清理 libraries 目录下的空文件（0 字节），防止 @xmcl/installer 跳过重新下载
@@ -336,7 +391,6 @@ ipcMain.handle('game:prepareEnvironment', async (event, { serverUrl }) => {
               const stat = fs.statSync(fullPath)
               if (stat.size === 0) {
                 fs.unlinkSync(fullPath)
-                sendLog(`  清理空文件: ${fullPath}`)
                 cleaned++
               }
             } catch (_) {}
@@ -344,102 +398,47 @@ ipcMain.handle('game:prepareEnvironment', async (event, { serverUrl }) => {
         }
         return cleaned
       }
-      const cleanedCount = cleanEmptyFiles(libDir)
-      if (cleanedCount > 0) {
-        sendLog(`已清理 ${cleanedCount} 个损坏的空文件`)
-      }
 
       // 带重试的 Forge 安装
-      const maxForgeRetries = 3
-      let forgeInstalled = false
-      for (let attempt = 1; attempt <= maxForgeRetries; attempt++) {
-        try {
-          if (attempt > 1) {
-            sendLog(`⚠️ 第 ${attempt}/${maxForgeRetries} 次重试 Forge 安装...`)
-            // 重试前再次清理空文件
-            cleanEmptyFiles(libDir)
-          }
+      await withRetry(
+        async (opts) => {
+          cleanEmptyFiles(libDir)
           await installForge({
             version: gameManager.FORGE_VERSION,
             mcversion: gameManager.MC_VERSION
           }, minecraftLocation, {
             java: java.path,
             inheritsFrom: gameManager.MC_VERSION,
-            ...downloadOpts
+            ...opts
           })
-          sendLog(`✓ Forge 安装处理器完成`)
-          forgeInstalled = true
-          break
-        } catch (forgeErr) {
-          sendLog(`❌ Forge 处理器错误 (第 ${attempt} 次): ${forgeErr.message || forgeErr}`)
-          sendLog(`错误类型: ${forgeErr.constructor?.name || typeof forgeErr}`)
-          // 展开 AggregateError 的子错误
-          if (forgeErr.errors) {
-            for (let i = 0; i < Math.min(forgeErr.errors.length, 10); i++) {
-              const sub = forgeErr.errors[i]
-              sendLog(`  子错误[${i}]: ${sub.message || sub}`)
-              if (sub.url) sendLog(`    URL: ${sub.url}`)
-              if (sub.errors) {
-                for (let j = 0; j < Math.min(sub.errors.length, 5); j++) {
-                  sendLog(`    子子错误[${j}]: ${sub.errors[j].message || sub.errors[j]}`)
-                }
-              }
-            }
-          }
-          if (forgeErr.stack) sendLog(`堆栈: ${forgeErr.stack.split('\n').slice(0, 5).join(' | ')}`)
-          if (attempt >= maxForgeRetries) throw forgeErr
-          const delay = attempt * 5000
-          sendLog(`等待 ${delay / 1000} 秒后重试...`)
-          await new Promise(r => setTimeout(r, delay))
-        }
-      }
+        },
+        'Forge 安装',
+        { maxRetries: 5, timeoutMs: 300000 }
+      )
     } else {
       sendLog(`✓ Forge 已安装且处理器输出完整`)
     }
 
-    // 安装依赖库和资源文件（带重试）
+    // 安装依赖库和资源文件（带重试 + 超时保护）
     {
       const forgeVerId = `${gameManager.MC_VERSION}-forge-${gameManager.FORGE_VERSION}`
-
       sendProgress('game', 45, '正在检查依赖库...')
       sendLog('检查并下载依赖库和资源文件...')
       const parsedVersion = await Version.parse(minecraftLocation, forgeVerId)
 
-      // 带重试的下载辅助函数
-      const retryDownload = async (fn, label, maxRetries = 3) => {
-        for (let attempt = 1; attempt <= maxRetries; attempt++) {
-          try {
-            // 重试时降低并发、增加超时
-            const opts = attempt === 1 ? downloadOpts : {
-              ...downloadOpts,
-              assetsDownloadConcurrency: Math.max(2, 8 - attempt * 2),
-              librariesDownloadConcurrency: Math.max(2, 8 - attempt * 2),
-            }
-            await fn(parsedVersion, minecraftLocation, opts)
-            return
-          } catch (err) {
-            const errCount = err.errors ? err.errors.length : 1
-            sendLog(`⚠️ ${label}失败 (${errCount} 个错误)，第 ${attempt}/${maxRetries} 次`)
-            if (err.errors) {
-              for (const sub of err.errors.slice(0, 3)) {
-                sendLog(`  - ${sub.message || sub}`)
-              }
-            }
-            if (attempt >= maxRetries) throw err
-            const delay = attempt * 3000
-            sendLog(`等待 ${delay / 1000} 秒后重试...`)
-            await new Promise(r => setTimeout(r, delay))
-          }
-        }
-      }
-
       sendProgress('game', 48, '正在下载库文件...')
-      await retryDownload(installLibs, '库文件下载')
-      sendLog('✓ 库文件下载完成')
+      await withRetry(
+        (opts) => installLibs(parsedVersion, minecraftLocation, opts),
+        '库文件下载',
+        { maxRetries: 5, timeoutMs: 120000 }
+      )
 
       sendProgress('game', 52, '正在下载资源文件...')
-      await retryDownload(installAsts, '资源文件下载')
-      sendLog('✓ 资源文件下载完成')
+      await withRetry(
+        (opts) => installAsts(parsedVersion, minecraftLocation, opts),
+        '资源文件下载',
+        { maxRetries: 5, timeoutMs: 300000 }
+      )
     }
 
     // 验证 Forge 安装完整性
