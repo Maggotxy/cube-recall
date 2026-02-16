@@ -1,0 +1,330 @@
+/* =========================================================
+   Cube Recall - Minecraft Pixel Art Design System
+   Font: Press Start 2P (headings) + VT323 (body)
+   Palette: Dirt Brown / Grass Green / Diamond Blue / Stone Gray
+   ========================================================= */
+
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap');
+
+/* ---------- CSS Variables ---------- */
+:root {
+  /* MC Palette */
+  --mc-dirt:        #866043;
+  --mc-dirt-dark:   #593D29;
+  --mc-dirt-light:  #9B7653;
+  --mc-grass:       #5D8C32;
+  --mc-grass-light: #7EC850;
+  --mc-grass-dark:  #3B5E1F;
+  --mc-stone:       #8B8B8B;
+  --mc-stone-dark:  #6B6B6B;
+  --mc-stone-light: #AAAAAA;
+  --mc-diamond:     #5DECF2;
+  --mc-diamond-dark:#2CB9BF;
+  --mc-gold:        #FCDB05;
+  --mc-redstone:    #FF3333;
+  --mc-obsidian:    #1D1026;
+  --mc-endstone:    #DBCB78;
+
+  /* UI Colors */
+  --bg-primary:     #2C2C2C;
+  --bg-secondary:   #3C3C3C;
+  --bg-card:        #393939;
+  --bg-input:       #1A1A1A;
+  --text-primary:   #E8E8E8;
+  --text-secondary: #A0A0A0;
+  --text-muted:     #6B6B6B;
+  --border-color:   #4A4A4A;
+
+  /* Pixel sizing */
+  --pixel: 3px;
+
+  /* Fonts */
+  --font-heading:   'Press Start 2P', monospace;
+  --font-body:      'VT323', monospace;
+}
+
+/* ---------- Reset ---------- */
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-body);
+  font-size: 18px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  overflow: hidden;
+  image-rendering: pixelated;
+  -webkit-font-smoothing: none;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--mc-stone-dark);
+  border: 2px solid var(--bg-primary);
+}
+
+a {
+  color: var(--mc-diamond);
+  text-decoration: none;
+  cursor: pointer;
+}
+a:hover {
+  color: var(--mc-diamond-dark);
+  text-decoration: underline;
+}
+
+/* ---------- MC Pixel Border Utility ---------- */
+/* 模拟 MC 风格的立体像素边框 */
+.mc-border {
+  border: var(--pixel) solid #000;
+  box-shadow:
+    inset calc(var(--pixel) * -1) calc(var(--pixel) * -1) 0 0 rgba(0,0,0,0.35),
+    inset var(--pixel) var(--pixel) 0 0 rgba(255,255,255,0.15);
+}
+
+/* ---------- MC Stone Button ---------- */
+.mc-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 24px;
+  min-height: 44px;
+  font-family: var(--font-heading);
+  font-size: 11px;
+  color: var(--text-primary);
+  background: var(--mc-stone);
+  border: var(--pixel) solid #000;
+  box-shadow:
+    inset calc(var(--pixel) * -1) calc(var(--pixel) * -1) 0 0 #555,
+    inset var(--pixel) var(--pixel) 0 0 #C6C6C6;
+  cursor: pointer;
+  transition: none;
+  image-rendering: pixelated;
+  text-shadow: 2px 2px 0 rgba(0,0,0,0.4);
+  letter-spacing: 1px;
+  user-select: none;
+  position: relative;
+}
+
+.mc-btn:hover {
+  background: #A5A5D4;
+  box-shadow:
+    inset calc(var(--pixel) * -1) calc(var(--pixel) * -1) 0 0 #6B6BA0,
+    inset var(--pixel) var(--pixel) 0 0 #D0D0FF;
+}
+
+.mc-btn:active {
+  background: var(--mc-stone-dark);
+  box-shadow:
+    inset var(--pixel) var(--pixel) 0 0 #555,
+    inset calc(var(--pixel) * -1) calc(var(--pixel) * -1) 0 0 #888;
+  padding-top: 10px;
+  padding-bottom: 6px;
+}
+
+.mc-btn:disabled {
+  background: #555;
+  color: #888;
+  box-shadow:
+    inset calc(var(--pixel) * -1) calc(var(--pixel) * -1) 0 0 #333,
+    inset var(--pixel) var(--pixel) 0 0 #666;
+  cursor: not-allowed;
+}
+
+.mc-btn-primary {
+  background: var(--mc-grass);
+  box-shadow:
+    inset calc(var(--pixel) * -1) calc(var(--pixel) * -1) 0 0 var(--mc-grass-dark),
+    inset var(--pixel) var(--pixel) 0 0 var(--mc-grass-light);
+}
+
+.mc-btn-primary:hover {
+  background: #6DA83C;
+  box-shadow:
+    inset calc(var(--pixel) * -1) calc(var(--pixel) * -1) 0 0 #4A7828,
+    inset var(--pixel) var(--pixel) 0 0 #90D860;
+}
+
+.mc-btn-danger {
+  background: #8B3333;
+  box-shadow:
+    inset calc(var(--pixel) * -1) calc(var(--pixel) * -1) 0 0 #5A1A1A,
+    inset var(--pixel) var(--pixel) 0 0 #BB5555;
+}
+
+.mc-btn-danger:hover {
+  background: #A03030;
+}
+
+.mc-btn-full {
+  width: 100%;
+}
+
+/* ---------- MC Input Field ---------- */
+.mc-input {
+  width: 100%;
+  padding: 8px 12px;
+  min-height: 40px;
+  font-family: var(--font-body);
+  font-size: 20px;
+  color: var(--text-primary);
+  background: #000;
+  border: var(--pixel) solid #000;
+  box-shadow:
+    inset var(--pixel) var(--pixel) 0 0 #222,
+    inset calc(var(--pixel) * -1) calc(var(--pixel) * -1) 0 0 #444;
+  outline: none;
+  caret-color: var(--mc-grass-light);
+}
+
+.mc-input:focus {
+  box-shadow:
+    inset var(--pixel) var(--pixel) 0 0 #222,
+    inset calc(var(--pixel) * -1) calc(var(--pixel) * -1) 0 0 #444,
+    0 0 0 var(--pixel) var(--mc-diamond);
+}
+
+.mc-input::placeholder {
+  color: #555;
+}
+
+/* ---------- MC Card / Panel ---------- */
+.mc-panel {
+  background: var(--bg-card);
+  border: var(--pixel) solid #000;
+  box-shadow:
+    inset calc(var(--pixel) * -1) calc(var(--pixel) * -1) 0 0 #222,
+    inset var(--pixel) var(--pixel) 0 0 #555;
+  padding: 24px;
+}
+
+/* ---------- MC Progress Bar (XP Bar style) ---------- */
+.mc-progress {
+  width: 100%;
+  height: 12px;
+  background: #222;
+  border: 2px solid #000;
+  box-shadow:
+    inset 1px 1px 0 0 #111,
+    inset -1px -1px 0 0 #333;
+  position: relative;
+  overflow: hidden;
+}
+
+.mc-progress-bar {
+  height: 100%;
+  background: linear-gradient(180deg, var(--mc-grass-light) 0%, var(--mc-grass) 50%, var(--mc-grass-dark) 100%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.3);
+  transition: width 0.3s ease;
+}
+
+/* ---------- Form Groups ---------- */
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-family: var(--font-heading);
+  font-size: 9px;
+  color: var(--text-secondary);
+  text-shadow: 1px 1px 0 rgba(0,0,0,0.5);
+  letter-spacing: 0.5px;
+}
+
+/* ---------- Messages ---------- */
+.msg-error {
+  color: var(--mc-redstone);
+  font-family: var(--font-body);
+  font-size: 18px;
+  text-shadow: 1px 1px 0 rgba(0,0,0,0.5);
+  margin-top: 6px;
+}
+
+.msg-success {
+  color: var(--mc-grass-light);
+  font-family: var(--font-body);
+  font-size: 18px;
+  text-shadow: 1px 1px 0 rgba(0,0,0,0.5);
+  margin-top: 6px;
+}
+
+/* ---------- Dirt Texture Background (CSS pattern) ---------- */
+.bg-dirt {
+  background-color: var(--mc-dirt);
+  background-image:
+    repeating-conic-gradient(var(--mc-dirt-dark) 0% 25%, transparent 0% 50%) 0 0 / 8px 8px,
+    repeating-conic-gradient(var(--mc-dirt-light) 0% 25%, transparent 0% 50%) 4px 4px / 8px 8px;
+  image-rendering: pixelated;
+}
+
+/* ---------- Grass Top Border ---------- */
+.grass-top {
+  position: relative;
+}
+.grass-top::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 8px;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--mc-grass) 0px,
+    var(--mc-grass) 4px,
+    var(--mc-grass-dark) 4px,
+    var(--mc-grass-dark) 8px
+  );
+  image-rendering: pixelated;
+}
+
+/* ---------- Loading Spinner (Pixel) ---------- */
+@keyframes mc-spin {
+  0%   { content: '|'; }
+  25%  { content: '/'; }
+  50%  { content: '-'; }
+  75%  { content: '\\'; }
+}
+
+.mc-loading::after {
+  content: '|';
+  animation: mc-spin 0.4s steps(1) infinite;
+  font-family: var(--font-body);
+}
+
+/* ---------- Tooltip ---------- */
+.mc-tooltip {
+  position: relative;
+  background: #100010;
+  border: 2px solid #25005A;
+  padding: 6px 10px;
+  font-family: var(--font-body);
+  font-size: 16px;
+  color: #fff;
+  box-shadow:
+    inset 0 0 0 1px #250050;
+}
+
+/* ---------- Utility ---------- */
+.text-center { text-align: center; }
+.text-shadow { text-shadow: 2px 2px 0 rgba(0,0,0,0.5); }
+.pixel-font  { font-family: var(--font-heading); }
+.body-font   { font-family: var(--font-body); }
+
+/* Reduce motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0s !important;
+    transition-duration: 0s !important;
+  }
+}

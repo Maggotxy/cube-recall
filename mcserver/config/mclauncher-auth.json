@@ -1,0 +1,9 @@
+{
+  "apiBaseUrl": "http://127.0.0.1:5806",
+  "apiKey": "cuberecall-mod-key-2024",
+  "verifyTimeoutSeconds": 10,
+  "kickMessageNotVerified": "请通过 MCLauncher 启动器登录后进入服务器",
+  "kickMessageTimeout": "登录验证超时，请重试",
+  "kickMessageError": "登录验证服务异常，请稍后重试",
+  "enabled": true
+}

@@ -1,0 +1,50 @@
+===============================================
+  Cube Recall Launcher - Quick Start Guide
+===============================================
+
+IMPORTANT: Port changed to 5173
+
+Step 1: Kill port 5173 (if occupied)
+-------------------------------------
+Double-click: kill-launcher-port.bat
+
+
+Step 2: Start the launcher
+---------------------------
+Double-click: start-launcher.bat
+
+OR manually in CMD:
+  cd C:\Development\mcluancher\launcher
+  npm run dev
+
+
+Step 3: Wait for Electron window
+---------------------------------
+The launcher will open automatically at:
+  http://localhost:5173
+
+
+===============================================
+  Troubleshooting
+===============================================
+
+Problem: Window closes immediately
+Solution: Open CMD manually and run:
+  cd C:\Development\mcluancher\launcher
+  npm run dev
+  (This will show error messages)
+
+Problem: Port 5173 is in use
+Solution:
+  1. Double-click kill-launcher-port.bat
+  2. Try again
+
+Problem: Node.js not found
+Solution: Install Node.js 18+ from https://nodejs.org/
+
+===============================================
+  All Files
+===============================================
+start-launcher.bat          - Start launcher (simple)
+kill-launcher-port.bat      - Kill port 5173
+HOW-TO-START.txt            - This file

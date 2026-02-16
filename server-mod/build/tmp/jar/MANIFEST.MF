@@ -1,0 +1,8 @@
+Manifest-Version: 1.0
+Specification-Title: mclauncherauth
+Specification-Vendor: MCLauncher
+Specification-Version: 1
+Implementation-Title: server-mod
+Implementation-Version: 1.0.0
+Implementation-Vendor: MCLauncher
+

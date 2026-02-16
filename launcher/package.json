@@ -1,0 +1,101 @@
+{
+  "name": "cube-recall",
+  "version": "1.0.0",
+  "description": "Cube Recall - Minecraft Forge 1.20.1 Game Launcher",
+  "author": "Cube Recall Team",
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "build:vue": "vite build",
+    "build": "node scripts/build-win.js",
+    "build:simple": "vite build && electron-builder",
+    "electron:dev": "electron ."
+  },
+  "dependencies": {
+    "@xmcl/client": "^3.2.0",
+    "@xmcl/core": "^2.15.1",
+    "@xmcl/installer": "^6.1.2",
+    "@xmcl/user": "^4.3.0",
+    "axios": "^1.6.5",
+    "electron-log": "^5.4.3",
+    "electron-updater": "^6.7.3",
+    "minecraft-java-core": "^4.2.6",
+    "p-limit": "^3.1.0",
+    "pinia": "^2.1.7",
+    "undici": "^7.22.0",
+    "vue": "^3.4.15",
+    "vue-router": "^4.2.5"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.3",
+    "concurrently": "^8.2.2",
+    "electron": "^28.1.4",
+    "electron-builder": "^24.9.1",
+    "vite": "^5.0.12",
+    "wait-on": "^7.2.0"
+  },
+  "build": {
+    "appId": "com.cuberecall.app",
+    "productName": "Cube Recall",
+    "copyright": "Copyright (c) 2026 Cube Recall Team",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "public/icon.ico",
+      "requestedExecutionLevel": "asInvoker",
+      "signAndEditExecutable": false
+    },
+    "portable": {
+      "artifactName": "CubeRecall-${version}.exe"
+    },
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "http://mc.sivita.xyz:5806/updates"
+      }
+    ],
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "icon": "public/icon.png",
+      "category": "public.app-category.games",
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "entitlements": null,
+      "entitlementsInherit": null
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "icon": "public/icon.png",
+      "category": "Game"
+    },
+    "dmg": {
+      "artifactName": "CubeRecall-${version}.${ext}"
+    },
+    "asar": true,
+    "compression": "maximum"
+  }
+}

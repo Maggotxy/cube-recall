@@ -1,0 +1,26 @@
+modLoader="javafml"
+loaderVersion="[47,)"
+license="All Rights Reserved"
+
+[[mods]]
+    modId="mclauncherauth"
+    version="1.0.0"
+    displayName="MCLauncher Auth"
+    authors="MCLauncher"
+    description='''Server-side authentication mod for MCLauncher. Verifies players logged in through the launcher.'''
+    # 服务端 Mod，客户端不需要安装
+    displayTest="IGNORE_SERVER_VERSION"
+
+[[dependencies.mclauncherauth]]
+    modId="forge"
+    mandatory=true
+    versionRange="[47,)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.mclauncherauth]]
+    modId="minecraft"
+    mandatory=true
+    versionRange="[1.20.1,1.21)"
+    ordering="NONE"
+    side="BOTH"

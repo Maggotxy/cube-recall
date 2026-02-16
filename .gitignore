@@ -1,0 +1,101 @@
+# ===========================
+# Cube Recall .gitignore
+# ===========================
+
+# ====================
+# Launcher
+# ====================
+launcher/node_modules/
+launcher/dist/
+launcher/release/
+launcher/.vite/
+launcher/logs/
+launcher/*.log
+
+# ====================
+# Server
+# ====================
+server/**/__pycache__/
+server/**/*.pyc
+server/.pytest_cache/
+server/venv/
+server/env/
+server/mclauncher.db
+server/logs/
+server/mods/*.jar
+server/client_pack/
+server/updates/*.exe
+server/updates/*.yml
+server/config/
+server/resourcepacks/
+server/tacz/
+
+# ====================
+# MC Server
+# ====================
+mcserver/world/
+mcserver/logs/
+mcserver/crash-reports/
+mcserver/*.log
+mcserver/usercache.json
+mcserver/banned-*.json
+mcserver/ops.json
+mcserver/whitelist.json
+
+# ====================
+# IDE
+# ====================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ====================
+# OS
+# ====================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ====================
+# Temp
+# ====================
+*.tmp
+*.bak
+*.cache
+~*
+
+# ====================
+# User Data
+# ====================
+launcher/userData/
+~/.cuberecall/
+~/.mclauncher/
+
+# ====================
+# Build
+# ====================
+*.exe
+*.dmg
+*.AppImage
+*.deb
+*.rpm
+
+# ====================
+# Secrets
+# ====================
+.env
+.env.local
+*.key
+*.pem
+credentials.json
+
+# ====================
+# Lock Files (Optional)
+# ====================
+# Uncomment if you want to ignore lock files
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+nul

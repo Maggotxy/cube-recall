@@ -1,0 +1,44 @@
+{
+  "version": "1.0.0",
+  "server_ip": "mc.sivita.xyz",
+  "global_settings": {
+    "maxConcurrent": 3,
+    "retryAttempts": 3,
+    "retryDelay": 1000,
+    "timeout": 300000
+  },
+  "folders": [
+    {
+      "id": "mods",
+      "display_name": "模组文件",
+      "path": "../mcserver/mods",
+      "extensions": [".jar"],
+      "priority": 1,
+      "download_base_url": "http://mc.sivita.xyz:5806/sync/mods/download"
+    },
+    {
+      "id": "config",
+      "display_name": "配置文件",
+      "path": "../mcserver/config",
+      "extensions": [".json", ".toml", ".cfg", ".txt", ".yml", ".yaml"],
+      "priority": 2,
+      "download_base_url": "http://mc.sivita.xyz:5806/sync/config/download"
+    },
+    {
+      "id": "resourcepacks",
+      "display_name": "资源包",
+      "path": "../mcserver/resourcepacks",
+      "extensions": [".zip"],
+      "priority": 3,
+      "download_base_url": "http://mc.sivita.xyz:5806/sync/resourcepacks/download"
+    },
+    {
+      "id": "tacz",
+      "display_name": "TACZ枪械包",
+      "path": "../mcserver/tacz",
+      "extensions": [".zip", ".jar", ".toml"],
+      "priority": 4,
+      "download_base_url": "http://mc.sivita.xyz:5806/sync/tacz/download"
+    }
+  ]
+}
